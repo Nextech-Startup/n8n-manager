@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`dark ${exo2.variable}`}>
-      <body className="antialiased" style={{ background: 'transparent' }}>
+    <html lang="pt-BR" className={`dark ${exo2.variable} h-full overflow-hidden`}>
+      <body className="antialiased h-full w-full overflow-hidden bg-transparent">
         {children}
       </body>
     </html>
