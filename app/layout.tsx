@@ -9,8 +9,8 @@ const exo2 = Exo_2({
 });
 
 export const metadata: Metadata = {
-  title: 'n8n Workflow Manager',
-  description: 'Gerencie seus workflows do n8n com autenticação e 2FA',
+  title: 'Manager Workflows',
+  description: 'Gerenciador de workflows.',
 };
 
 export default function RootLayout({
