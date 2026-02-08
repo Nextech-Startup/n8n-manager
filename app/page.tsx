@@ -47,7 +47,7 @@ export default function Page() {
   }
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-background">
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-background">
       
       <Background />
 
