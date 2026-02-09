@@ -5,7 +5,7 @@ import { N8nAccount } from '@/app/types'
 
 interface UseAccountsProps {
   token: string | null
-  onAccountSelected?: (account: N8nAccount) => void // ← NOVO callback
+  onAccountSelected?: (account: N8nAccount) => void
 }
 
 export const useAccounts = (token: string | null, onAccountSelected?: (account: N8nAccount) => void) => {
@@ -19,6 +19,13 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
     is_default: false 
   })
   const [loading, setLoading] = useState(false)
+  
+  // Estado para o diálogo de confirmação
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    accountId: '',
+    accountName: ''
+  })
 
   const loadAccounts = async () => {
     if (!token) return
@@ -34,12 +41,11 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
         const defaultAccount = data.accounts.find((a: N8nAccount) => a.is_default) || data.accounts[0]
         if (defaultAccount) {
           setSelectedAccount(defaultAccount)
-          // ✅ Dispara callback quando seleciona conta automaticamente
           onAccountSelected?.(defaultAccount)
         }
       }
     } catch (err) {
-      console.error('Erro ao carregar contas:', err)
+      // Erro ao carregar contas
     }
   }
 
@@ -65,15 +71,23 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
         loadAccounts()
       }
     } catch (err) {
-      console.error('Erro ao criar conta:', err)
+      // Erro ao criar conta
     } finally {
       setLoading(false)
     }
   }
 
-  const deleteAccount = async (id: string) => {
-    if (!confirm('Tem certeza que deseja deletar esta conta?')) return
+  // Abre o diálogo de confirmação
+  const requestDeleteAccount = (id: string, name: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      accountId: id,
+      accountName: name
+    })
+  }
 
+  // Confirma a exclusão
+  const confirmDeleteAccount = async () => {
     try {
       const response = await fetch('/api/n8n-accounts/delete', {
         method: 'DELETE',
@@ -81,14 +95,23 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ accountId: id })
+        body: JSON.stringify({ accountId: confirmDialog.accountId })
       })
 
       const data = await response.json()
-      if (data.success) loadAccounts()
+      if (data.success) {
+        loadAccounts()
+      }
     } catch (err) {
-      console.error('Erro ao deletar conta:', err)
+      // Erro ao deletar conta
+    } finally {
+      setConfirmDialog({ isOpen: false, accountId: '', accountName: '' })
     }
+  }
+
+  // Cancela a exclusão
+  const cancelDeleteAccount = () => {
+    setConfirmDialog({ isOpen: false, accountId: '', accountName: '' })
   }
 
   const setDefaultAccount = async (id: string) => {
@@ -105,11 +128,11 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
       const data = await response.json()
       if (data.success) loadAccounts()
     } catch (err) {
-      console.error('Erro ao definir conta padrão:', err)
+      // Erro ao definir conta padrão
     }
   }
 
-  // ✅ Wrapper para setSelectedAccount que dispara o callback
+  // Wrapper para setSelectedAccount que dispara o callback
   const handleSetSelectedAccount = (account: N8nAccount) => {
     setSelectedAccount(account)
     onAccountSelected?.(account)
@@ -122,13 +145,16 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
   return {
     accounts,
     selectedAccount,
-    setSelectedAccount: handleSetSelectedAccount, // ← USA o wrapper
+    setSelectedAccount: handleSetSelectedAccount,
     showAccountForm,
     setShowAccountForm,
     accountForm,
     setAccountForm,
     createAccount,
-    deleteAccount,
+    requestDeleteAccount, // Nova função para abrir diálogo
+    confirmDeleteAccount, // Confirma exclusão
+    cancelDeleteAccount, // Cancela exclusão
+    confirmDialog, // Estado do diálogo
     setDefaultAccount,
     loading,
   }

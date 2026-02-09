@@ -23,7 +23,7 @@ interface DashboardProps {
     }
     setAccountForm: (form: any) => void
     createAccount: (e: React.FormEvent) => void
-    deleteAccount: (id: string) => void
+    deleteAccount: (id: string, name: string) => void
     setDefaultAccount: (id: string) => void
     accountLoading: boolean
     workflows: Workflow[]
@@ -96,8 +96,8 @@ export const Dashboard = (props: DashboardProps) => {
                 <aside className="lg:col-span-4 lg:sticky lg:top-6">
                     <div className="backdrop-blur-xl bg-[#101719]/40 border border-[#7cb8c7]/20 rounded-2xl p-4 sm:p-5 lg:p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-2">
-                            <h2 className="text-lg sm:text-xl lg:text-xl font-bold text-white flex items-center gap-2">
-                                <span className="text-[#7cb8c7]">●</span> Instâncias
+                            <h2 className="text-lg sm:text-xl lg:text-lg font-bold text-white flex items-center gap-2">
+                                <span className="text-[#7cb8c7]">●</span>Minhas Instâncias
                             </h2>
                             <div onClick={() => props.setShowAccountForm(!props.showAccountForm)} className="cursor-pointer">
                                 <LiquidMetalButton
@@ -223,7 +223,7 @@ export const Dashboard = (props: DashboardProps) => {
                                         </h3>
                                         <p className="text-[10px] text-white/40 truncate mt-1 font-mono">{acc.base_url}</p>
                                     </div>
-                                    <div onClick={(e) => { e.stopPropagation(); props.deleteAccount(acc.id); }} className="cursor-pointer flex items-center">
+                                    <div onClick={(e) => { e.stopPropagation(); props.deleteAccount(acc.id, acc.name); }} className="cursor-pointer flex items-center">
                                         <LiquidMetalButton
                                             viewMode="icon"
                                             icon={<Trash2 size={16} className="text-white" />}

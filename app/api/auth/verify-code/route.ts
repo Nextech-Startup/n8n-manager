@@ -3,18 +3,10 @@ import prisma from '@/lib/prisma';
 import { signAccessToken, signRefreshToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  console.log('🟢 ===== /api/auth/verify-code CHAMADO =====');
-  
   try {
     const { userId, code, rememberMe } = await request.json();
-    
-    console.log('🟢 Dados recebidos:');
-    console.log('  - userId:', userId);
-    console.log('  - code:', code);
-    console.log('  - rememberMe:', rememberMe);
 
     if (!userId || !code) {
-      console.log('🔴 Erro: userId ou code faltando');
       return NextResponse.json(
         { success: false, message: 'Código e ID do usuário são obrigatórios' },
         { status: 400 }
@@ -22,7 +14,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar código no banco
-    console.log('🟢 Buscando código no banco...');
     const verificationCode = await prisma.verificationCode.findFirst({
       where: {
         userId,
@@ -35,14 +26,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!verificationCode) {
-      console.log('🔴 Código inválido ou expirado');
       return NextResponse.json(
         { success: false, message: 'Código inválido ou expirado' },
         { status: 401 }
       );
     }
-
-    console.log('🟢 Código válido! Marcando como usado...');
 
     // Marcar código como usado
     await prisma.verificationCode.update({
@@ -51,23 +39,18 @@ export async function POST(request: NextRequest) {
     });
 
     // Buscar usuário
-    console.log('🟢 Buscando usuário...');
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      console.log('🔴 Usuário não encontrado');
       return NextResponse.json(
         { success: false, message: 'Usuário não encontrado' },
         { status: 404 }
       );
     }
 
-    console.log('🟢 Usuário encontrado:', user.email);
-
     // Gerar access token (sessão curta/imediata)
-    console.log('🟢 Gerando access token...');
     const accessToken = signAccessToken({
       userId: user.id,
       email: user.email,
@@ -86,8 +69,6 @@ export async function POST(request: NextRequest) {
 
     // LÓGICA DE CONFIANÇA: Se rememberMe for true, setamos o cookie persistente
     if (rememberMe) {
-      console.log('✅ rememberMe = true, gerando e persistindo refreshToken...');
-      
       const refreshToken = signRefreshToken({
         userId: user.id,
         email: user.email,
@@ -102,17 +83,13 @@ export async function POST(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 30, // 30 dias
         path: '/',
       });
-
-      console.log('✅ Cookie refreshToken setado para 30 dias.');
     } else {
-      console.log('❌ rememberMe = false, limpando possíveis cookies antigos.');
       response.cookies.set('refreshToken', '', { expires: new Date(0), path: '/' });
     }
 
     return response;
 
   } catch (error) {
-    console.error('🔴 ERRO no /api/auth/verify-code:', error);
     return NextResponse.json(
       { success: false, message: 'Erro ao verificar código' },
       { status: 500 }

@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { AuthScreen } from '@/components/AuthScreen'
 import { VerifyCodeScreen } from '@/components/VerifyCodeScreen'
 import { SuccessAnimation } from '@/components/SuccessAnimation'
-import { LogoutAnimation } from '@/components/LogoutAnimation' // ← ADICIONAR
+import { LogoutAnimation } from '@/components/LogoutAnimation'
 import { Dashboard } from '@/components/Dashboard'
 import { Background } from "@/components/Background"
+import { ConfirmDialog } from '@/components/Confirmdialog'
 import { useAuth } from './hooks/useAuth'
 import { useAccounts } from './hooks/useAccounts'
 import { useWorkflows } from './hooks/useWorkflows'
@@ -14,10 +15,9 @@ import { N8nAccount } from './types'
 
 export default function Page() {
   const auth = useAuth()
-  const [showLogoutAnimation, setShowLogoutAnimation] = useState(false) // ← ADICIONAR
+  const [showLogoutAnimation, setShowLogoutAnimation] = useState(false)
   
   const handleAccountSelected = (account: N8nAccount) => {
-    console.log('🔄 Conta selecionada manualmente, sincronizando workflows...', account.name)
     workflows.loadWorkflows()
   }
   
@@ -26,13 +26,12 @@ export default function Page() {
 
   useEffect(() => {
     if (auth.step === 'dashboard' && accounts.selectedAccount && workflows.workflows.length === 0) {
-      console.log('🚀 Login detectado! Carregando workflows automaticamente...')
       workflows.loadWorkflows()
     }
   }, [auth.step, accounts.selectedAccount?.id])
 
   const handleLogoutSystem = async () => {
-    setShowLogoutAnimation(true) // ← Mostra animação
+    setShowLogoutAnimation(true)
   }
 
   const completeLogout = () => {
@@ -41,7 +40,6 @@ export default function Page() {
     window.location.href = '/'
   }
 
-  // ← ADICIONAR: Renderiza animação de logout
   if (showLogoutAnimation) {
     return <LogoutAnimation onComplete={completeLogout} />
   }
@@ -82,7 +80,7 @@ export default function Page() {
               accountForm={accounts.accountForm}
               setAccountForm={accounts.setAccountForm}
               createAccount={accounts.createAccount}
-              deleteAccount={accounts.deleteAccount}
+              deleteAccount={accounts.requestDeleteAccount}
               setDefaultAccount={accounts.setDefaultAccount}
               accountLoading={accounts.loading}
               workflows={workflows.workflows}
@@ -96,6 +94,17 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {/* Diálogo de Confirmação de Exclusão */}
+      <ConfirmDialog
+        isOpen={accounts.confirmDialog.isOpen}
+        title="Deletar Instância"
+        message={`Tem certeza que deseja deletar "${accounts.confirmDialog.accountName}"? Esta ação não pode ser desfeita.`}
+        confirmText="Sim, deletar"
+        cancelText="Cancelar"
+        onConfirm={accounts.confirmDeleteAccount}
+        onCancel={accounts.cancelDeleteAccount}
+      />
     </main>
   )
 }
