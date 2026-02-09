@@ -1,143 +1,172 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 // ============================================================
-// RATE LIMITER EMBUTIDO
+// CONFIGURAÇÃO DO REDIS
 // ============================================================
 
-type RateLimitEntry = {
-  count: number
-  resetTime: number
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+
+// ============================================================
+// RATE LIMITERS POR ROTA
+// ============================================================
+
+// Login - 10 requisições a cada 15 minutos
+const loginLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '15 m'),
+  analytics: true,
+  prefix: 'ratelimit:login',
+})
+
+// Verify Code - 5 requisições a cada 5 minutos
+const verifyLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '5 m'),
+  analytics: true,
+  prefix: 'ratelimit:verify',
+})
+
+// Account Create - 20 requisições por hora
+const accountCreateLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(20, '1 h'),
+  analytics: true,
+  prefix: 'ratelimit:account-create',
+})
+
+// Account Delete - 30 requisições por hora
+const accountDeleteLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(30, '1 h'),
+  analytics: true,
+  prefix: 'ratelimit:account-delete',
+})
+
+// Account List - 100 requisições por minuto
+const accountListLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(100, '1 m'),
+  analytics: true,
+  prefix: 'ratelimit:account-list',
+})
+
+// Workflows List - 120 requisições por minuto
+const workflowsListLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(120, '1 m'),
+  analytics: true,
+  prefix: 'ratelimit:workflows-list',
+})
+
+// Workflows Toggle - 60 requisições por minuto
+const workflowsToggleLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, '1 m'),
+  analytics: true,
+  prefix: 'ratelimit:workflows-toggle',
+})
+
+// ============================================================
+// MAPEAMENTO DE ROTAS PARA LIMITERS
+// ============================================================
+
+const ROUTE_LIMITERS: Record<string, Ratelimit> = {
+  '/api/auth/login': loginLimiter,
+  '/api/auth/verify-code': verifyLimiter,
+  '/api/n8n-accounts/create': accountCreateLimiter,
+  '/api/n8n-accounts/delete': accountDeleteLimiter,
+  '/api/n8n-accounts/list': accountListLimiter,
+  '/api/workflows': workflowsListLimiter,
+  '/api/workflows/toggle': workflowsToggleLimiter,
 }
 
-type RateLimitConfig = {
-  maxRequests: number
-  windowMs: number
-}
-
-// Armazena requisições em memória
-const requests = new Map<string, RateLimitEntry>()
-
-// Limpa entradas expiradas a cada 5 minutos
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of requests.entries()) {
-    if (now > entry.resetTime) {
-      requests.delete(key)
-    }
-  }
-}, 5 * 60 * 1000)
-
-function checkRateLimit(identifier: string, config: RateLimitConfig): { 
-  allowed: boolean
-  remaining: number
-  resetTime: number 
-} {
-  const now = Date.now()
-  const entry = requests.get(identifier)
-
-  // Se não existe ou expirou, cria nova entrada
-  if (!entry || now > entry.resetTime) {
-    const resetTime = now + config.windowMs
-    requests.set(identifier, { count: 1, resetTime })
-    return { 
-      allowed: true, 
-      remaining: config.maxRequests - 1,
-      resetTime 
-    }
-  }
-
-  // Se ainda está dentro da janela
-  if (entry.count < config.maxRequests) {
-    entry.count++
-    requests.set(identifier, entry)
-    return { 
-      allowed: true, 
-      remaining: config.maxRequests - entry.count,
-      resetTime: entry.resetTime 
-    }
-  }
-
-  // Limite excedido
-  return { 
-    allowed: false, 
-    remaining: 0,
-    resetTime: entry.resetTime 
-  }
-}
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 
 function getClientIdentifier(request: NextRequest): string {
+  // Pega o IP real, mesmo atrás de proxies
   const forwarded = request.headers.get('x-forwarded-for')
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 
-             request.headers.get('x-real-ip') || 
+  const realIp = request.headers.get('x-real-ip')
+  const cfConnectingIp = request.headers.get('cf-connecting-ip') // Cloudflare
+  
+  const ip = cfConnectingIp || 
+             (forwarded ? forwarded.split(',')[0].trim() : realIp) || 
              'unknown'
+  
   return ip
 }
 
-// ============================================================
-// CONFIGURAÇÕES DE RATE LIMIT POR ROTA
-// ============================================================
-
-const RATE_LIMITS = {
-  AUTH_LOGIN: { maxRequests: 5, windowMs: 15 * 60 * 1000 }, // 5 req / 15 min
-  AUTH_VERIFY: { maxRequests: 3, windowMs: 5 * 60 * 1000 },  // 3 req / 5 min
-  ACCOUNT_CREATE: { maxRequests: 10, windowMs: 60 * 60 * 1000 }, // 10 req / hora
-  ACCOUNT_DELETE: { maxRequests: 20, windowMs: 60 * 60 * 1000 }, // 20 req / hora
-  ACCOUNT_LIST: { maxRequests: 60, windowMs: 60 * 1000 }, // 60 req / min
-  WORKFLOWS_LIST: { maxRequests: 60, windowMs: 60 * 1000 }, // 60 req / min
-  WORKFLOWS_TOGGLE: { maxRequests: 30, windowMs: 60 * 1000 }, // 30 req / min
-}
-
-const ROUTE_LIMITS: Record<string, RateLimitConfig> = {
-  '/api/auth/login': RATE_LIMITS.AUTH_LOGIN,
-  '/api/auth/verify-code': RATE_LIMITS.AUTH_VERIFY,
-  '/api/n8n-accounts/create': RATE_LIMITS.ACCOUNT_CREATE,
-  '/api/n8n-accounts/delete': RATE_LIMITS.ACCOUNT_DELETE,
-  '/api/n8n-accounts/list': RATE_LIMITS.ACCOUNT_LIST,
-  '/api/workflows': RATE_LIMITS.WORKFLOWS_LIST,
-  '/api/workflows/toggle': RATE_LIMITS.WORKFLOWS_TOGGLE,
+function formatWaitTime(ms: number): string {
+  const minutes = Math.ceil(ms / 60000)
+  const seconds = Math.ceil(ms / 1000)
+  
+  if (minutes > 1) {
+    return `${minutes} minuto(s)`
+  }
+  return `${seconds} segundo(s)`
 }
 
 // ============================================================
 // PROXY (Next.js 16+)
 // ============================================================
 
-export default function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // Verifica se a rota tem rate limiting configurado
-  const limitConfig = ROUTE_LIMITS[pathname]
-  
-  if (limitConfig) {
-    const clientId = getClientIdentifier(request)
-    const rateLimit = checkRateLimit(clientId, limitConfig)
-    
-    if (!rateLimit.allowed) {
-      const waitMinutes = Math.ceil((rateLimit.resetTime - Date.now()) / 60000)
-      
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: `Limite de requisições excedido. Tente novamente em ${waitMinutes} minuto(s).` 
-        },
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': String(limitConfig.maxRequests),
-            'X-RateLimit-Remaining': String(rateLimit.remaining),
-            'X-RateLimit-Reset': String(rateLimit.resetTime),
-          }
-        }
-      )
-    }
+  // Desabilita rate limiting em desenvolvimento (opcional)
+  if (process.env.NODE_ENV === 'development') {
+    return NextResponse.next()
+  }
 
-    // Adiciona headers de rate limit na resposta
-    const response = NextResponse.next()
-    response.headers.set('X-RateLimit-Limit', String(limitConfig.maxRequests))
-    response.headers.set('X-RateLimit-Remaining', String(rateLimit.remaining))
-    response.headers.set('X-RateLimit-Reset', String(rateLimit.resetTime))
+  // Verifica se a rota tem rate limiting configurado
+  const limiter = ROUTE_LIMITERS[pathname]
+  
+  if (limiter) {
+    const clientId = getClientIdentifier(request)
     
-    return response
+    try {
+      const { success, limit, remaining, reset } = await limiter.limit(clientId)
+      
+      if (!success) {
+        const waitTime = reset - Date.now()
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: `Muitas tentativas. Aguarde ${formatWaitTime(waitTime)} e tente novamente.` 
+          },
+          { 
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': String(limit),
+              'X-RateLimit-Remaining': String(remaining),
+              'X-RateLimit-Reset': String(reset),
+              'Retry-After': String(Math.ceil(waitTime / 1000)),
+            }
+          }
+        )
+      }
+
+      // Adiciona headers de rate limit na resposta
+      const response = NextResponse.next()
+      response.headers.set('X-RateLimit-Limit', String(limit))
+      response.headers.set('X-RateLimit-Remaining', String(remaining))
+      response.headers.set('X-RateLimit-Reset', String(reset))
+      
+      return response
+      
+    } catch (error) {
+      // Se Redis falhar, permite a requisição (fail-open)
+      // Em produção, você pode querer logar isso
+      return NextResponse.next()
+    }
   }
 
   return NextResponse.next()
