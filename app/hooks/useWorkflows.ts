@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Workflow, N8nAccount } from '@/app/types'
 
 export const useWorkflows = (token: string | null, selectedAccount: N8nAccount | null) => {
@@ -10,7 +10,12 @@ export const useWorkflows = (token: string | null, selectedAccount: N8nAccount |
   const [toggling, setToggling] = useState<string | null>(null)
 
   const loadWorkflows = async () => {
-    if (!selectedAccount || !token) return
+    // ✅ FIX: Se não tiver conta selecionada, limpa workflows
+    if (!selectedAccount || !token) {
+      setWorkflows([])
+      return
+    }
+    
     setLoading(true)
 
     try {
@@ -21,9 +26,13 @@ export const useWorkflows = (token: string | null, selectedAccount: N8nAccount |
       
       if (data.success) {
         setWorkflows(data.workflows || [])
+      } else {
+        // ✅ FIX: Se falhar (conta deletada), limpa workflows
+        setWorkflows([])
       }
     } catch (err) {
-      console.error('Erro ao carregar workflows:', err)
+      // ✅ FIX: Em caso de erro, limpa workflows
+      setWorkflows([])
     } finally {
       setLoading(false)
     }
@@ -55,11 +64,18 @@ export const useWorkflows = (token: string | null, selectedAccount: N8nAccount |
         ))
       }
     } catch (err) {
-      console.error('Erro ao alternar workflow:', err)
+      // Erro ao alternar workflow
     } finally {
       setToggling(null)
     }
   }
+
+  // ✅ FIX: Limpa workflows quando selectedAccount muda para null
+  useEffect(() => {
+    if (!selectedAccount) {
+      setWorkflows([])
+    }
+  }, [selectedAccount])
 
   return {
     workflows,

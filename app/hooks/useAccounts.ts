@@ -38,8 +38,21 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
       
       if (data.success) {
         setAccounts(data.accounts)
-        const defaultAccount = data.accounts.find((a: N8nAccount) => a.is_default) || data.accounts[0]
-        if (defaultAccount) {
+        
+        // ✅ FIX: Se não tiver contas, limpa selectedAccount
+        if (data.accounts.length === 0) {
+          setSelectedAccount(null)
+          onAccountSelected?.(null as any)
+          return
+        }
+        
+        // ✅ FIX: Se a conta selecionada foi deletada, seleciona outra
+        const currentSelectedId = selectedAccount?.id
+        const stillExists = data.accounts.find((a: N8nAccount) => a.id === currentSelectedId)
+        
+        if (!stillExists) {
+          // Conta atual foi deletada, seleciona a primeira disponível
+          const defaultAccount = data.accounts.find((a: N8nAccount) => a.is_default) || data.accounts[0]
           setSelectedAccount(defaultAccount)
           onAccountSelected?.(defaultAccount)
         }
@@ -88,6 +101,8 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
 
   // Confirma a exclusão
   const confirmDeleteAccount = async () => {
+    const deletingCurrentAccount = selectedAccount?.id === confirmDialog.accountId
+    
     try {
       const response = await fetch('/api/n8n-accounts/delete', {
         method: 'DELETE',
@@ -100,7 +115,13 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
 
       const data = await response.json()
       if (data.success) {
-        loadAccounts()
+        // ✅ FIX: Se deletou a conta selecionada, limpa imediatamente
+        if (deletingCurrentAccount) {
+          setSelectedAccount(null)
+        }
+        
+        // Recarrega a lista (que vai selecionar outra conta automaticamente)
+        await loadAccounts()
       }
     } catch (err) {
       // Erro ao deletar conta
@@ -151,10 +172,10 @@ export const useAccounts = (token: string | null, onAccountSelected?: (account: 
     accountForm,
     setAccountForm,
     createAccount,
-    requestDeleteAccount, // Nova função para abrir diálogo
-    confirmDeleteAccount, // Confirma exclusão
-    cancelDeleteAccount, // Cancela exclusão
-    confirmDialog, // Estado do diálogo
+    requestDeleteAccount,
+    confirmDeleteAccount,
+    cancelDeleteAccount,
+    confirmDialog,
     setDefaultAccount,
     loading,
   }

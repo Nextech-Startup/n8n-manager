@@ -65,7 +65,6 @@ export async function GET(request: NextRequest) {
       workflows: data.data || [],
     });
   } catch (error) {
-    console.error('Erro:', error);
     return NextResponse.json(
       { success: false, message: 'Falha ao buscar workflows' },
       { status: 500 }

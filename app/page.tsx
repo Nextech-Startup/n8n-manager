@@ -17,8 +17,11 @@ export default function Page() {
   const auth = useAuth()
   const [showLogoutAnimation, setShowLogoutAnimation] = useState(false)
   
-  const handleAccountSelected = (account: N8nAccount) => {
-    workflows.loadWorkflows()
+  // ✅ FIX: Só carrega workflows se a conta existir
+  const handleAccountSelected = (account: N8nAccount | null) => {
+    if (account) {
+      workflows.loadWorkflows()
+    }
   }
   
   const accounts = useAccounts(auth.token, handleAccountSelected)

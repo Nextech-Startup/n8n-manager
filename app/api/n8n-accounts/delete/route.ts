@@ -31,10 +31,24 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.n8nAccount.delete({
+    // ✅ Verifica se a conta existe e pertence ao usuário antes de deletar
+    const account = await prisma.n8nAccount.findFirst({
       where: {
         id: accountId,
         userId: payload.userId,
+      },
+    });
+
+    if (!account) {
+      return NextResponse.json(
+        { success: false, message: 'Conta não encontrada ou sem permissão' },
+        { status: 404 }
+      );
+    }
+
+    await prisma.n8nAccount.delete({
+      where: {
+        id: accountId,
       },
     });
 
@@ -43,7 +57,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Conta deletada',
     });
   } catch (error) {
-    console.error('Erro ao deletar conta:', error);
+    // ✅ Removido console.error - sem vazamento de informação
     return NextResponse.json(
       { success: false, message: 'Erro ao deletar conta' },
       { status: 500 }

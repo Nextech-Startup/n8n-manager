@@ -46,11 +46,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ SOLUÇÃO: Usar endpoint específico para ativar/desativar
+    // Usar endpoint específico para ativar/desativar
     const action = active ? 'activate' : 'deactivate';
     const endpoint = `${account.baseUrl}/api/v1/workflows/${workflowId}/${action}`;
-    
-    console.log(`🔄 ${active ? 'Ativando' : 'Desativando'} workflow:`, workflowId);
 
     const updateResponse = await fetch(endpoint, {
       method: 'POST',
@@ -62,7 +60,6 @@ export async function POST(request: NextRequest) {
 
     if (!updateResponse.ok) {
       const errorText = await updateResponse.text();
-      console.error('❌ Erro do n8n:', errorText);
       
       return NextResponse.json(
         { 
@@ -74,14 +71,12 @@ export async function POST(request: NextRequest) {
     }
 
     const updatedWorkflow = await updateResponse.json();
-    console.log('✅ Workflow atualizado com sucesso!', { active: updatedWorkflow.active });
     
     return NextResponse.json({
       success: true,
       workflow: updatedWorkflow,
     });
   } catch (error) {
-    console.error('💥 Erro geral:', error);
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : 'Falha ao atualizar workflow' },
       { status: 500 }
