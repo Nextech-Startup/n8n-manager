@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 import * as THREE from 'three';
 import { useEffect, useRef } from 'react';
@@ -18,8 +17,6 @@ export const Background = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    console.log('🎨 Three.js Background iniciando...');
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -101,8 +98,6 @@ export const Background = ({
     window.addEventListener('resize', handleResize);
     animationId = requestAnimationFrame(animate);
 
-    console.log('✅ Three.js renderizado!');
-
     return () => {
       isMounted = false;
       window.removeEventListener('resize', handleResize);
@@ -115,7 +110,7 @@ export const Background = ({
         containerRef.current.removeChild(renderer.domElement);
       }
     };
-  }, [colors, speed, rotation]);
+  }, []); // ✅ Array vazio = roda APENAS UMA VEZ!
 
   return (
     <div 

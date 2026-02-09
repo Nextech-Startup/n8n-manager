@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from "framer-motion"
 import { N8nAccount, Workflow } from '@/app/types'
 import { Plus, Trash2, Search, RefreshCw, Zap } from "lucide-react"
@@ -36,8 +36,12 @@ interface DashboardProps {
 }
 
 export const Dashboard = (props: DashboardProps) => {
-    const filtered = props.workflows.filter((w: Workflow) =>
-        w.name.toLowerCase().includes(props.searchTerm.toLowerCase())
+    // ✅ useMemo previne recálculo a cada render
+    const filtered = useMemo(() =>
+        props.workflows.filter((w: Workflow) =>
+            w.name.toLowerCase().includes(props.searchTerm.toLowerCase())
+        ),
+        [props.workflows, props.searchTerm]
     )
 
     const [formErrors, setFormErrors] = useState({
@@ -84,11 +88,7 @@ export const Dashboard = (props: DashboardProps) => {
     }
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="relative z-10 w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-4 space-y-4 sm:space-y-6 lg:space-y-6 pb-8 sm:pb-12 lg:pb-12"
-        >
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-4 space-y-4 sm:space-y-6 lg:space-y-6 pb-8 sm:pb-12 lg:pb-12">
             <Header userEmail={props.userEmail} onLogout={props.onLogout} />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-6 items-start">
@@ -111,25 +111,10 @@ export const Dashboard = (props: DashboardProps) => {
                         <AnimatePresence initial={false}>
                             {props.showAccountForm && (
                                 <motion.div
-                                    initial={{ height: 0, opacity: 0, scale: 0.95 }}
-                                    animate={{
-                                        height: "auto",
-                                        opacity: 1,
-                                        scale: 1,
-                                        transition: {
-                                            height: { type: "spring", stiffness: 300, damping: 30 },
-                                            opacity: { duration: 0.2 }
-                                        }
-                                    }}
-                                    exit={{
-                                        height: 0,
-                                        opacity: 0,
-                                        scale: 0.95,
-                                        transition: {
-                                            height: { type: "spring", stiffness: 300, damping: 30 },
-                                            opacity: { duration: 0.1 }
-                                        }
-                                    }}
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
                                     className="overflow-hidden mt-4 sm:mt-6 lg:mt-6"
                                 >
                                     <div className="p-3 sm:p-4 lg:p-4 bg-[#42504d]/10 border border-[#607585]/20 rounded-xl space-y-3 mb-4 sm:mb-6 lg:mb-6 shadow-inner">
@@ -208,8 +193,7 @@ export const Dashboard = (props: DashboardProps) => {
 
                         <div className="space-y-2 sm:space-y-3 lg:space-y-3">
                             {props.accounts.map((acc: N8nAccount) => (
-                                <motion.div
-                                    layout
+                                <div
                                     key={acc.id}
                                     onClick={() => props.setSelectedAccount(acc)}
                                     className={`group flex items-center justify-between p-3 sm:p-4 lg:p-4 border rounded-xl cursor-pointer transition-all ${props.selectedAccount?.id === acc.id
@@ -229,7 +213,7 @@ export const Dashboard = (props: DashboardProps) => {
                                             icon={<Trash2 size={16} className="text-white" />}
                                         />
                                     </div>
-                                </motion.div>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -258,43 +242,39 @@ export const Dashboard = (props: DashboardProps) => {
                     </div>
 
                     {/* Lista de Workflows */}
-                    <motion.div layout className="grid grid-cols-1 gap-2 sm:gap-3 lg:gap-3">
-                        <AnimatePresence mode="popLayout">
-                            {filtered.map((w: Workflow) => (
-                                <motion.div
-                                    layout
-                                    key={w.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="backdrop-blur-xl bg-[#101719]/40 border border-[#7cb8c7]/20 rounded-2xl p-3 sm:p-4 lg:p-5 flex items-center justify-between hover:border-[#7cb8c7]/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-1 min-w-0">
-                                        <div className={`p-2 sm:p-3 lg:p-3 rounded-xl transition-all shrink-0 ${w.active ? 'bg-[#7cb8c7] text-white shadow-[0_0_15px_rgba(124,184,199,0.4)]' : 'bg-[#101719] text-white/20 border border-white/5'}`}>
-                                            <Zap size={16} className={`sm:w-5 sm:h-5 lg:w-5 lg:h-5 ${w.active ? "animate-pulse" : ""}`} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-sm sm:text-base lg:text-base text-white group-hover:text-[#7cb8c7] transition-colors truncate">{w.name}</h3>
-                                            <p className="text-[10px] text-white/30 font-mono tracking-tighter truncate">ID: {w.id}</p>
-                                        </div>
+                    <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:gap-3">
+                        {filtered.map((w: Workflow) => (
+                            <div
+                                key={w.id}
+                                className="backdrop-blur-xl bg-[#101719]/40 border border-[#7cb8c7]/20 rounded-2xl p-3 sm:p-4 lg:p-5 flex items-center justify-between hover:border-[#7cb8c7]/50 transition-all group"
+                            >
+                                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-1 min-w-0">
+                                    <div className={`p-2 sm:p-3 lg:p-3 rounded-xl transition-all shrink-0 ${w.active ? 'bg-[#7cb8c7] text-white shadow-[0_0_15px_rgba(124,184,199,0.4)]' : 'bg-[#101719] text-white/20 border border-white/5'}`}>
+                                        <Zap size={16} className={`sm:w-5 sm:h-5 lg:w-5 lg:h-5 ${w.active ? "animate-pulse" : ""}`} />
                                     </div>
-                                    <button
-                                        onClick={() => props.toggleWorkflow(w.id, w.active)}
-                                        disabled={props.toggling === w.id}
-                                        className={`relative inline-flex h-6 w-11 sm:h-7 sm:w-12 lg:h-7 lg:w-12 items-center rounded-full transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 shrink-0 ml-2 ${w.active ? 'bg-linear-to-r from-[#7cb8c7] to-[#607585]' : 'bg-white/10'
-                                            }`}
-                                    >
-                                        <motion.span
-                                            animate={{ x: w.active ? (window.innerWidth < 640 ? 22 : 24) : 4 }}
-                                            className="inline-block h-4 w-4 sm:h-5 sm:w-5 lg:h-5 lg:w-5 transform rounded-full bg-white shadow-lg"
-                                        />
-                                    </button>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
-                    </motion.div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-sm sm:text-base lg:text-base text-white group-hover:text-[#7cb8c7] transition-colors truncate">{w.name}</h3>
+                                        <p className="text-[10px] text-white/30 font-mono tracking-tighter truncate">ID: {w.id}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => props.toggleWorkflow(w.id, w.active)}
+                                    disabled={props.toggling === w.id}
+                                    className={`relative inline-flex h-6 w-11 sm:h-7 sm:w-12 lg:h-7 lg:w-12 items-center rounded-full transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 shrink-0 ml-2 ${w.active ? 'bg-linear-to-r from-[#7cb8c7] to-[#607585]' : 'bg-white/10'
+                                        }`}
+                                >
+                                    <span
+                                        className="inline-block h-4 w-4 sm:h-5 sm:w-5 lg:h-5 lg:w-5 transform rounded-full bg-white shadow-lg transition-transform"
+                                        style={{
+                                            transform: w.active ? 'translateX(22px)' : 'translateX(4px)'
+                                        }}
+                                    />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </section>
             </div>
-        </motion.div>
+        </div>
     )
 }
